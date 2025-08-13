@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจัดการหลังร้าน</title>
+    <title>ระบบจัดการ GTRbarber</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
@@ -15,14 +15,16 @@
         .admin-list-container { margin-top: 20px; }
         ul { list-style-type: none; padding: 0; min-height: 60px; }
         li { background-color: #ecf0f1; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #bdc3c7; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        li.pending { border-left-color: #f1c40f; }
-        li.confirmed { border-left-color: #2ecc71; }
+        li.pending-approval { border-left-color: #e67e22; } /* Orange */
+        li.pending-confirmation { border-left-color: #f1c40f; } /* Yellow */
+        li.confirmed { border-left-color: #2ecc71; } /* Green */
         li.completed { border-left-color: #95a5a6; text-decoration: line-through; opacity: 0.7; }
         .placeholder { color: #95a5a6; font-style: italic; text-align: center; padding: 20px; }
         .booking-id { font-weight: bold; color: #34495e; background-color: #dfe6e9; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
         .admin-buttons button { width: auto; padding: 6px 12px; margin-left: 5px; margin-top: 5px; font-size: 12px; border-radius: 6px; cursor: pointer; border: none; color: white; transition: transform 0.2s; font-weight: bold; }
         .admin-buttons button:hover { transform: translateY(-1px); }
-        .confirm-btn { background: linear-gradient(45deg, #2ecc71, #27ae60); }
+        .approve-btn { background: linear-gradient(45deg, #2980b9, #3498db); }
+        .confirm-payment-btn { background: linear-gradient(45deg, #2ecc71, #27ae60); }
         .complete-btn { background: linear-gradient(45deg, #e67e22, #d35400); }
         .edit-btn { background: linear-gradient(45deg, #f1c40f, #f39c12); }
         .view-slip-btn { background: linear-gradient(45deg, #3498db, #2980b9); }
@@ -41,7 +43,7 @@
     
     <div id="login-screen">
         <div class="card" style="max-width: 400px; margin: auto;">
-            <h1>สำหรับเจ้าของร้าน</h1>
+            <h1>สำหรับเจ้าของร้าน GTRbarber</h1>
             <label for="password">กรุณาใส่รหัสผ่าน:</label>
             <input type="password" id="password" placeholder="รหัสผ่านคือ 1234">
             <button id="login-button">เข้าสู่ระบบ</button>
@@ -53,15 +55,19 @@
             <h1>⚙️ ระบบจัดการหลังร้าน</h1>
             <div id="admin-view">
                 <div class="admin-list-container">
-                    <h2>คิวที่รอการยืนยัน</h2>
-                    <ul id="pending-list"></ul>
+                    <h2>คำขอใหม่ (รอยืนยันคิว)</h2>
+                    <ul id="pending-approval-list"></ul>
+                </div>
+                <div class="admin-list-container">
+                    <h2>รอตรวจสอบสลิป</h2>
+                    <ul id="pending-confirmation-list"></ul>
                 </div>
                 <div class="admin-list-container">
                     <h2>คิวที่ยืนยันแล้ว</h2>
                     <ul id="confirmed-list"></ul>
                 </div>
                 <div class="admin-list-container">
-                    <h2>ประวัติการใช้บริการ (ตัดเสร็จแล้ว)</h2>
+                    <h2>ประวัติการใช้บริการ</h2>
                     <ul id="history-list"></ul>
                 </div>
             </div>
@@ -115,7 +121,8 @@
         closeSlipViewerBtn.addEventListener('click', () => { slipViewerModal.style.display = 'none'; });
         window.addEventListener('click', (event) => { if (event.target == slipViewerModal) { slipViewerModal.style.display = 'none'; } });
 
-        const pendingList = document.getElementById('pending-list');
+        const pendingApprovalList = document.getElementById('pending-approval-list');
+        const pendingConfirmationList = document.getElementById('pending-confirmation-list');
         const confirmedList = document.getElementById('confirmed-list');
         const historyList = document.getElementById('history-list');
 
@@ -124,19 +131,28 @@
             const q = query(bookingsRef, orderBy("createdAt", "desc"));
 
             onSnapshot(q, (querySnapshot) => {
-                pendingList.innerHTML = '';
+                pendingApprovalList.innerHTML = '';
+                pendingConfirmationList.innerHTML = '';
                 confirmedList.innerHTML = '';
                 historyList.innerHTML = '';
 
                 querySnapshot.forEach((doc) => {
                     const booking = { id: doc.id, ...doc.data() };
                     const listItem = createListItem(booking);
-                    if (booking.status === 'pending') {
-                        pendingList.appendChild(listItem);
-                    } else if (booking.status === 'confirmed') {
-                        confirmedList.appendChild(listItem);
-                    } else if (booking.status === 'completed') {
-                        historyList.appendChild(listItem);
+                    
+                    switch(booking.status) {
+                        case 'pending-approval':
+                            pendingApprovalList.appendChild(listItem);
+                            break;
+                        case 'pending-confirmation':
+                            pendingConfirmationList.appendChild(listItem);
+                            break;
+                        case 'confirmed':
+                            confirmedList.appendChild(listItem);
+                            break;
+                        case 'completed':
+                            historyList.appendChild(listItem);
+                            break;
                     }
                 });
                 checkPlaceholders();
@@ -144,21 +160,27 @@
         }
         
         function checkPlaceholders() {
-            if (pendingList.children.length === 0) pendingList.innerHTML = '<li class="placeholder">ยังไม่มีคิวที่รอยืนยัน...</li>';
-            if (confirmedList.children.length === 0) confirmedList.innerHTML = '<li class="placeholder">ยังไม่มีคิวที่ยืนยันแล้ว...</li>';
-            if (historyList.children.length === 0) historyList.innerHTML = '<li class="placeholder">ยังไม่มีประวัติการใช้บริการ...</li>';
+            if (pendingApprovalList.children.length === 0) pendingApprovalList.innerHTML = '<li class="placeholder">ไม่มีคำขอใหม่...</li>';
+            if (pendingConfirmationList.children.length === 0) pendingConfirmationList.innerHTML = '<li class="placeholder">ไม่มีสลิปที่ต้องตรวจสอบ...</li>';
+            if (confirmedList.children.length === 0) confirmedList.innerHTML = '<li class="placeholder">ไม่มีคิวที่ยืนยันแล้ว...</li>';
+            if (historyList.children.length === 0) historyList.innerHTML = '<li class="placeholder">ไม่มีประวัติการใช้บริการ...</li>';
         }
 
         function createListItem(booking) {
             const listItem = document.createElement('li');
-            listItem.setAttribute('data-id', booking.id);
             listItem.className = booking.status;
             
             let actionButtons = '';
-            if (booking.status === 'pending') {
-                actionButtons = '<button class="confirm-btn">ยืนยันการจอง</button>';
-            } else if (booking.status === 'confirmed') {
-                actionButtons = '<button class="edit-btn">แก้ไขเวลา</button><button class="complete-btn">ตัดเสร็จแล้ว</button>';
+            switch(booking.status) {
+                case 'pending-approval':
+                    actionButtons = '<button class="approve-btn">อนุมัติ (ให้ลูกค้าชำระเงิน)</button>';
+                    break;
+                case 'pending-confirmation':
+                    actionButtons = '<button class="confirm-payment-btn">ยืนยันการชำระเงิน</button>';
+                    break;
+                case 'confirmed':
+                    actionButtons = '<button class="edit-btn">แก้ไขเวลา</button><button class="complete-btn">ตัดเสร็จแล้ว</button>';
+                    break;
             }
 
             let slipButton = '';
@@ -166,7 +188,6 @@
                 slipButton = '<button class="view-slip-btn">ดูสลิป</button>';
             }
 
-            // --- แสดงรหัสการจอง ---
             const bookingIdDisplay = booking.bookingId ? `<span class="booking-id">${booking.bookingId}</span>` : '';
 
             listItem.innerHTML = `
@@ -181,11 +202,18 @@
             if (booking.slipImage) {
                 listItem.querySelector('.view-slip-btn').addEventListener('click', () => viewSlip(booking.slipImage));
             }
-            if (booking.status === 'pending') {
-                listItem.querySelector('.confirm-btn').addEventListener('click', () => updateBookingStatus(booking.id, 'confirmed'));
-            } else if (booking.status === 'confirmed') {
-                listItem.querySelector('.edit-btn').addEventListener('click', () => editBooking(booking));
-                listItem.querySelector('.complete-btn').addEventListener('click', () => updateBookingStatus(booking.id, 'completed'));
+
+            switch(booking.status) {
+                case 'pending-approval':
+                    listItem.querySelector('.approve-btn').addEventListener('click', () => updateBookingStatus(booking.id, 'pending-payment'));
+                    break;
+                case 'pending-confirmation':
+                    listItem.querySelector('.confirm-payment-btn').addEventListener('click', () => updateBookingStatus(booking.id, 'confirmed'));
+                    break;
+                case 'confirmed':
+                    listItem.querySelector('.edit-btn').addEventListener('click', () => editBooking(booking));
+                    listItem.querySelector('.complete-btn').addEventListener('click', () => updateBookingStatus(booking.id, 'completed'));
+                    break;
             }
             return listItem;
         }
