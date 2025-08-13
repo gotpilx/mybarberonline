@@ -10,12 +10,15 @@
     <style>
         body { font-family: 'Sarabun', sans-serif; background-color: #f4f4f9; color: #333; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .card { background-color: white; padding: 25px; border-radius: 12px; box-shadow: 0 6px 12px rgba(0,0,0,0.1); width: 100%; max-width: 500px; box-sizing: border-box; }
-        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-top: 0; }
+        h1, h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-top: 0; }
         label { display: block; margin-top: 15px; margin-bottom: 5px; font-weight: bold; }
         input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-family: 'Sarabun', sans-serif; font-size: 16px; }
         button { width: 100%; padding: 12px; background: linear-gradient(45deg, #3498db, #2980b9); color: white; border: none; border-radius: 8px; font-size: 16px; font-family: 'Sarabun', sans-serif; cursor: pointer; margin-top: 20px; transition: transform 0.2s, box-shadow 0.2s; font-weight: bold; }
         button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         button:disabled { background: #bdc3c7; cursor: not-allowed; }
+        #status-message { margin-top: 15px; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; display: none; }
+        .status-available { background-color: #e8f5e9; color: #2e7d32; }
+        .status-unavailable { background-color: #ffebee; color: #c62828; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); animation: fadeIn 0.3s; }
         .modal-content { background-color: #fefefe; margin: 10% auto; padding: 30px; border: 1px solid #888; width: 90%; max-width: 400px; text-align: center; border-radius: 12px; position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.3); animation: slideIn 0.4s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -30,14 +33,22 @@
 <body>
 
     <div class="card" id="customer-section">
-        <h1>🧔‍♂️ จองคิวตัดผม</h1>
-        <form id="booking-form">
+        <h1>🧔‍♂️ จองคิว GTRbarber</h1>
+        
+        <div id="check-availability-section">
+            <label for="booking-time">เลือกวันและเวลาที่ต้องการ:</label>
+            <input type="datetime-local" id="booking-time" required>
+            <button id="check-availability-btn">ตรวจสอบคิวว่าง</button>
+        </div>
+
+        <div id="status-message"></div>
+
+        <form id="booking-form" style="display: none;">
+            <hr style="margin-top: 20px;">
             <label for="name">ชื่อ-นามสกุล:</label>
             <input type="text" id="name" placeholder="เช่น สมชาย ใจดี" required>
             <label for="phone">เบอร์โทรศัพท์:</label>
             <input type="tel" id="phone" placeholder="เช่น 0812345678" required>
-            <label for="booking-time">เลือกวันและเวลา:</label>
-            <input type="datetime-local" id="booking-time" required>
             <label for="age-group">เลือกกลุ่มอายุ (สำหรับเงินมัดจำ):</label>
             <select id="age-group" required>
                 <option value="">-- กรุณาเลือก --</option>
@@ -45,7 +56,7 @@
                 <option value="teen">วัยรุ่น (มัดจำ 80 บาท)</option>
                 <option value="adult">ผู้ใหญ่ (มัดจำ 100 บาท)</option>
             </select>
-            <button type="submit">ดำเนินการต่อ</button>
+            <button type="submit">ดำเนินการต่อเพื่อชำระเงิน</button>
         </form>
     </div>
 
@@ -57,7 +68,7 @@
             <div class="account-details">
                 <p><strong>ธนาคาร:</strong> กสิกรไทย</p>
                 <p><strong>เลขที่บัญชี:</strong> 123-4-56789-0</p>
-                <p><strong>ชื่อบัญชี:</strong> ร้านตัดผม แฮร์สไตล์</p>
+                <p><strong>ชื่อบัญชี:</strong> GTRbarber</p>
             </div>
             <label for="slip-upload" style="margin-top: 15px; font-weight: bold;">แนบสลิปโอนเงิน:</label>
             <input type="file" id="slip-upload" accept="image/*" required>
@@ -67,10 +78,9 @@
         </div>
     </div>
 
-    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.7/firebase-app.js";
-        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.6.7/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.7/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyC_4a9EIXdNrehWSrXSjw-6amcD2gFm9cE",
@@ -84,7 +94,11 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        const checkBtn = document.getElementById('check-availability-btn');
+        const bookingTimeInput = document.getElementById('booking-time');
+        const statusMessage = document.getElementById('status-message');
         const bookingForm = document.getElementById('booking-form');
+        
         const paymentModal = document.getElementById('payment-modal');
         const closeModalButton = document.querySelector('.close-button');
         const confirmPaymentButton = document.getElementById('confirm-payment-button');
@@ -93,17 +107,58 @@
         const slipPreview = document.getElementById('slip-preview');
         let currentBookingData = null;
 
+        checkBtn.addEventListener('click', async () => {
+            const selectedTime = bookingTimeInput.value;
+            if (!selectedTime) {
+                alert('กรุณาเลือกวันและเวลาก่อนครับ');
+                return;
+            }
+
+            checkBtn.disabled = true;
+            checkBtn.textContent = 'กำลังตรวจสอบ...';
+            statusMessage.style.display = 'none';
+            bookingForm.style.display = 'none';
+
+            try {
+                const bookingsRef = collection(db, "bookings");
+                const q = query(bookingsRef, where("originalTime", "==", selectedTime));
+                const querySnapshot = await getDocs(q);
+
+                statusMessage.style.display = 'block';
+                if (querySnapshot.empty) {
+                    statusMessage.textContent = '✅ คิวนี้ว่าง! กรุณากรอกข้อมูลเพื่อจอง';
+                    statusMessage.className = 'status-available';
+                    bookingForm.style.display = 'block';
+                } else {
+                    statusMessage.textContent = '❌ ขออภัย คิวนี้ไม่ว่างแล้ว กรุณาเลือกเวลาอื่น';
+                    statusMessage.className = 'status-unavailable';
+                }
+            } catch (error) {
+                console.error("Error checking availability: ", error);
+                statusMessage.textContent = 'เกิดข้อผิดพลาดในการตรวจสอบคิว';
+                statusMessage.className = 'status-unavailable';
+                statusMessage.style.display = 'block';
+            } finally {
+                checkBtn.disabled = false;
+                checkBtn.textContent = 'ตรวจสอบคิวว่าง';
+            }
+        });
+
         bookingForm.addEventListener('submit', (event) => {
             event.preventDefault();
             const name = document.getElementById('name').value;
             const phone = document.getElementById('phone').value;
-            const timeValue = document.getElementById('booking-time').value;
             const ageGroup = document.getElementById('age-group').value;
             const deposits = { child: 40, teen: 80, adult: 100 };
             const deposit = deposits[ageGroup];
+            const timeValue = bookingTimeInput.value;
             const formattedTime = new Date(timeValue).toLocaleString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             
+            // --- สร้างรหัสการจอง ---
+            const bookingId = `GTR-${Math.floor(1000 + Math.random() * 9000)}`;
+
             currentBookingData = {
+                bookingId: bookingId, // เพิ่มรหัสการจอง
                 name, phone, deposit,
                 time: formattedTime,
                 originalTime: timeValue,
@@ -131,8 +186,6 @@
                     confirmPaymentButton.disabled = false;
                 };
                 reader.readAsDataURL(file);
-            } else {
-                confirmPaymentButton.disabled = true;
             }
         });
 
@@ -146,10 +199,13 @@
             confirmPaymentButton.textContent = 'กำลังส่งข้อมูล...';
 
             try {
-                const docRef = await addDoc(collection(db, "bookings"), currentBookingData);
+                await addDoc(collection(db, "bookings"), currentBookingData);
                 paymentModal.style.display = 'none';
-                bookingForm.reset();
-                alert('การจองสำเร็จ! ข้อมูลของท่านถูกส่งไปยังร้านค้าเพื่อรอการตรวจสอบ');
+                bookingForm.style.display = 'none';
+                statusMessage.style.display = 'none';
+                bookingTimeInput.value = '';
+                // --- แสดงรหัสการจองให้ลูกค้า ---
+                alert(`การจองสำเร็จ!\nรหัสการจองของคุณคือ: ${currentBookingData.bookingId}\nกรุณาเก็บรหัสนี้ไว้อ้างอิง`);
             } catch (e) {
                 alert('เกิดข้อผิดพลาดในการส่งข้อมูล กรุณาลองใหม่อีกครั้ง');
             } finally {
