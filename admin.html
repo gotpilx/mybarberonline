@@ -176,10 +176,10 @@
                     actionButtons = '<button class="approve-btn">อนุมัติ (ให้ลูกค้าชำระเงิน)</button>';
                     break;
                 case 'pending-confirmation':
-                    actionButtons = '<button class="confirm-payment-btn">ยืนยันการชำระเงิน</button>';
+                    actionButtons = '<button class="edit-btn">แก้ไขเวลา</button><button class="confirm-payment-btn">ยืนยันการชำระเงิน</button>';
                     break;
                 case 'confirmed':
-                    actionButtons = '<button class="edit-btn">แก้ไขเวลา</button><button class="complete-btn">ตัดเสร็จแล้ว</button>';
+                    actionButtons = '<button class="complete-btn">ตัดเสร็จแล้ว</button>';
                     break;
             }
 
@@ -208,10 +208,10 @@
                     listItem.querySelector('.approve-btn').addEventListener('click', () => updateBookingStatus(booking.id, 'pending-payment'));
                     break;
                 case 'pending-confirmation':
+                    listItem.querySelector('.edit-btn').addEventListener('click', () => editBooking(booking));
                     listItem.querySelector('.confirm-payment-btn').addEventListener('click', () => updateBookingStatus(booking.id, 'confirmed'));
                     break;
                 case 'confirmed':
-                    listItem.querySelector('.edit-btn').addEventListener('click', () => editBooking(booking));
                     listItem.querySelector('.complete-btn').addEventListener('click', () => updateBookingStatus(booking.id, 'completed'));
                     break;
             }
