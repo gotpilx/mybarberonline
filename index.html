@@ -38,8 +38,7 @@
         .clear-btn { background: #e74c3c; font-size: 14px; padding: 8px; margin-top: 15px; }
         .clear-btn:hover { background: #c0392b; }
         #availability-result { margin-top: 15px; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; display: none; }
-        .status-available { background-color: #e8f5e9; color: #2e7d32; }
-        .status-unavailable { background-color: #ffebee; color: #c62828; }
+        .status-info { background-color: #e7f3fe; color: #0c5460; }
     </style>
 </head>
 <body>
@@ -53,7 +52,7 @@
             <div id="check-day-section">
                 <label for="booking-date">เลือกวันที่ต้องการจอง:</label>
                 <input type="date" id="booking-date" required>
-                <button id="check-day-btn">ตรวจสอบคิวว่างสำหรับวันนี้</button>
+                <button id="check-day-btn">ตรวจสอบคิว</button>
             </div>
 
             <div id="availability-result"></div>
@@ -123,8 +122,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        const TOTAL_SLOTS_PER_DAY = 10; // กำหนดจำนวนคิวสูงสุดต่อวัน
-
         const checkDayBtn = document.getElementById('check-day-btn');
         const bookingDateInput = document.getElementById('booking-date');
         const availabilityResult = document.getElementById('availability-result');
@@ -161,23 +158,18 @@
                 const querySnapshot = await getDocs(q);
                 
                 const bookedCount = querySnapshot.size;
-                const remainingSlots = TOTAL_SLOTS_PER_DAY - bookedCount;
 
                 availabilityResult.style.display = 'block';
-                if (remainingSlots > 0) {
-                    availabilityResult.textContent = `✅ วันนี้ยังว่าง! เหลืออีก ${remainingSlots} คิว กรุณากรอกข้อมูลด้านล่างเพื่อจอง`;
-                    availabilityResult.className = 'status-available';
-                    requestForm.style.display = 'block';
-                } else {
-                    availabilityResult.textContent = '❌ ขออภัย วันนี้คิวเต็มแล้ว กรุณาเลือกวันอื่น';
-                    availabilityResult.className = 'status-unavailable';
-                }
+                availabilityResult.textContent = `ℹ️ วันนี้มีคิวรออยู่แล้ว ${bookedCount} คิว กรุณาเลือกเวลาและกรอกข้อมูลเพื่อจอง`;
+                availabilityResult.className = 'status-info';
+                requestForm.style.display = 'block';
+
             } catch (error) {
                 console.error("Error checking day availability:", error);
                 alert('เกิดข้อผิดพลาดในการตรวจสอบคิว');
             } finally {
                 checkDayBtn.disabled = false;
-                checkDayBtn.textContent = 'ตรวจสอบคิวว่างสำหรับวันนี้';
+                checkDayBtn.textContent = 'ตรวจสอบคิว';
             }
         });
 
