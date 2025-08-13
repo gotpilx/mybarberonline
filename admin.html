@@ -18,13 +18,15 @@
         li.pending-approval { border-left-color: #e67e22; } /* Orange */
         li.pending-confirmation { border-left-color: #f1c40f; } /* Yellow */
         li.confirmed { border-left-color: #2ecc71; } /* Green */
+        li.completed { border-left-color: #95a5a6; text-decoration: line-through; opacity: 0.7; }
         .placeholder { color: #95a5a6; font-style: italic; text-align: center; padding: 20px; }
         .booking-id { font-weight: bold; color: #34495e; background-color: #dfe6e9; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
         .admin-buttons button { width: auto; padding: 6px 12px; margin-left: 5px; margin-top: 5px; font-size: 12px; border-radius: 6px; cursor: pointer; border: none; color: white; transition: transform 0.2s; font-weight: bold; }
         .admin-buttons button:hover { transform: translateY(-1px); }
         .approve-btn { background: linear-gradient(45deg, #2980b9, #3498db); }
         .confirm-payment-btn { background: linear-gradient(45deg, #2ecc71, #27ae60); }
-        .complete-btn { background: linear-gradient(45deg, #e74c3c, #c0392b); } /* Changed color to red */
+        .complete-btn { background: linear-gradient(45deg, #8e44ad, #9b59b6); } /* Purple */
+        .delete-btn { background: linear-gradient(45deg, #e74c3c, #c0392b); } /* Red */
         .edit-btn { background: linear-gradient(45deg, #f1c40f, #f39c12); }
         .view-slip-btn { background: linear-gradient(45deg, #3498db, #2980b9); }
         #login-screen { text-align: center; padding-top: 50px; }
@@ -65,6 +67,10 @@
                     <h2>คิวที่ยืนยันแล้ว</h2>
                     <ul id="confirmed-list"></ul>
                 </div>
+                <div class="admin-list-container">
+                    <h2>ประวัติการใช้บริการ</h2>
+                    <ul id="history-list"></ul>
+                </div>
             </div>
         </div>
     </div>
@@ -87,7 +93,7 @@
             projectId: "mybarbershop-73642",
             storageBucket: "mybarbershop-73642.appspot.com",
             messagingSenderId: "741551490879",
-            appId: "1:741551490879:web:f32c81559e385de269758a"
+            appId: "1:741551490879:web:f32c81559e38de269758a"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -119,6 +125,7 @@
         const pendingApprovalList = document.getElementById('pending-approval-list');
         const pendingConfirmationList = document.getElementById('pending-confirmation-list');
         const confirmedList = document.getElementById('confirmed-list');
+        const historyList = document.getElementById('history-list');
 
         function listenForBookings() {
             const bookingsRef = collection(db, "bookings");
@@ -128,23 +135,24 @@
                 pendingApprovalList.innerHTML = '';
                 pendingConfirmationList.innerHTML = '';
                 confirmedList.innerHTML = '';
+                historyList.innerHTML = '';
 
                 querySnapshot.forEach((doc) => {
                     const booking = { id: doc.id, ...doc.data() };
-                    // We only care about statuses that are not 'completed'
-                    if (booking.status !== 'completed') {
-                        const listItem = createListItem(booking);
-                        switch(booking.status) {
-                            case 'pending-approval':
-                                pendingApprovalList.appendChild(listItem);
-                                break;
-                            case 'pending-confirmation':
-                                pendingConfirmationList.appendChild(listItem);
-                                break;
-                            case 'confirmed':
-                                confirmedList.appendChild(listItem);
-                                break;
-                        }
+                    const listItem = createListItem(booking);
+                    switch(booking.status) {
+                        case 'pending-approval':
+                            pendingApprovalList.appendChild(listItem);
+                            break;
+                        case 'pending-confirmation':
+                            pendingConfirmationList.appendChild(listItem);
+                            break;
+                        case 'confirmed':
+                            confirmedList.appendChild(listItem);
+                            break;
+                        case 'completed':
+                            historyList.appendChild(listItem);
+                            break;
                     }
                 });
                 checkPlaceholders();
@@ -155,6 +163,7 @@
             if (pendingApprovalList.children.length === 0) pendingApprovalList.innerHTML = '<li class="placeholder">ไม่มีคำขอใหม่...</li>';
             if (pendingConfirmationList.children.length === 0) pendingConfirmationList.innerHTML = '<li class="placeholder">ไม่มีสลิปที่ต้องตรวจสอบ...</li>';
             if (confirmedList.children.length === 0) confirmedList.innerHTML = '<li class="placeholder">ไม่มีคิวที่ยืนยันแล้ว...</li>';
+            if (historyList.children.length === 0) historyList.innerHTML = '<li class="placeholder">ไม่มีประวัติการใช้บริการ...</li>';
         }
 
         function createListItem(booking) {
@@ -170,7 +179,10 @@
                     actionButtons = '<button class="edit-btn">แก้ไขเวลา</button><button class="confirm-payment-btn">ยืนยันการชำระเงิน</button>';
                     break;
                 case 'confirmed':
-                    actionButtons = '<button class="complete-btn">ตัดเสร็จแล้ว (ลบ)</button>';
+                    actionButtons = '<button class="complete-btn">ตัดเสร็จแล้ว</button>';
+                    break;
+                case 'completed':
+                    actionButtons = '<button class="delete-btn">ลบถาวร</button>';
                     break;
             }
 
@@ -203,8 +215,10 @@
                     listItem.querySelector('.confirm-payment-btn').addEventListener('click', () => updateBookingStatus(booking.id, 'confirmed'));
                     break;
                 case 'confirmed':
-                    // Changed to deleteBooking instead of update
-                    listItem.querySelector('.complete-btn').addEventListener('click', () => deleteBooking(booking.id));
+                    listItem.querySelector('.complete-btn').addEventListener('click', () => updateBookingStatus(booking.id, 'completed'));
+                    break;
+                case 'completed':
+                    listItem.querySelector('.delete-btn').addEventListener('click', () => deleteBooking(booking.id));
                     break;
             }
             return listItem;
@@ -225,7 +239,6 @@
             if (isConfirmed) {
                 const bookingRef = doc(db, "bookings", id);
                 await deleteDoc(bookingRef);
-                // onSnapshot will automatically refresh the list
             }
         }
 
