@@ -37,6 +37,9 @@
         .pay-btn { width: auto; padding: 5px 10px; font-size: 14px; margin-top: 10px; }
         .clear-btn { background: #e74c3c; font-size: 14px; padding: 8px; margin-top: 15px; }
         .clear-btn:hover { background: #c0392b; }
+        #availability-result { margin-top: 15px; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; display: none; }
+        .status-available { background-color: #e8f5e9; color: #2e7d32; }
+        .status-unavailable { background-color: #ffebee; color: #c62828; }
     </style>
 </head>
 <body>
@@ -45,9 +48,21 @@
         <!-- Section 1: New Booking Request -->
         <div class="card">
             <h1>🧔‍♂️ จองคิว GTRbarber</h1>
-            <form id="booking-request-form">
-                <label for="booking-time">เลือกวันและเวลา:</label>
-                <input type="datetime-local" id="booking-time" required>
+            
+            <!-- Step 1: Check Day Availability -->
+            <div id="check-day-section">
+                <label for="booking-date">เลือกวันที่ต้องการจอง:</label>
+                <input type="date" id="booking-date" required>
+                <button id="check-day-btn">ตรวจสอบคิวว่างสำหรับวันนี้</button>
+            </div>
+
+            <div id="availability-result"></div>
+
+            <!-- Step 2: Full Booking Form (hidden by default) -->
+            <form id="booking-request-form" style="display: none;">
+                <hr style="margin-top: 20px;">
+                <label for="booking-time">เลือกเวลา:</label>
+                <input type="time" id="booking-time" required>
                 <label for="name">ชื่อ-นามสกุล:</label>
                 <input type="text" id="name" placeholder="เช่น สมชาย ใจดี" required>
                 <label for="phone">เบอร์โทรศัพท์:</label>
@@ -108,6 +123,11 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        const TOTAL_SLOTS_PER_DAY = 10; // กำหนดจำนวนคิวสูงสุดต่อวัน
+
+        const checkDayBtn = document.getElementById('check-day-btn');
+        const bookingDateInput = document.getElementById('booking-date');
+        const availabilityResult = document.getElementById('availability-result');
         const requestForm = document.getElementById('booking-request-form');
         const historyList = document.getElementById('booking-history-list');
         const clearHistoryBtn = document.getElementById('clear-history-btn');
@@ -119,6 +139,48 @@
         const slipPreview = document.getElementById('slip-preview');
         let activeBookingForPayment = null;
 
+        // --- Logic for Checking Day Availability ---
+        checkDayBtn.addEventListener('click', async () => {
+            const selectedDate = bookingDateInput.value;
+            if (!selectedDate) {
+                alert('กรุณาเลือกวันที่ก่อนครับ');
+                return;
+            }
+
+            checkDayBtn.disabled = true;
+            checkDayBtn.textContent = 'กำลังตรวจสอบ...';
+            availabilityResult.style.display = 'none';
+            requestForm.style.display = 'none';
+
+            try {
+                const startOfDay = `${selectedDate}T00:00`;
+                const endOfDay = `${selectedDate}T23:59`;
+
+                const bookingsRef = collection(db, "bookings");
+                const q = query(bookingsRef, where("originalTime", ">=", startOfDay), where("originalTime", "<=", endOfDay));
+                const querySnapshot = await getDocs(q);
+                
+                const bookedCount = querySnapshot.size;
+                const remainingSlots = TOTAL_SLOTS_PER_DAY - bookedCount;
+
+                availabilityResult.style.display = 'block';
+                if (remainingSlots > 0) {
+                    availabilityResult.textContent = `✅ วันนี้ยังว่าง! เหลืออีก ${remainingSlots} คิว กรุณากรอกข้อมูลด้านล่างเพื่อจอง`;
+                    availabilityResult.className = 'status-available';
+                    requestForm.style.display = 'block';
+                } else {
+                    availabilityResult.textContent = '❌ ขออภัย วันนี้คิวเต็มแล้ว กรุณาเลือกวันอื่น';
+                    availabilityResult.className = 'status-unavailable';
+                }
+            } catch (error) {
+                console.error("Error checking day availability:", error);
+                alert('เกิดข้อผิดพลาดในการตรวจสอบคิว');
+            } finally {
+                checkDayBtn.disabled = false;
+                checkDayBtn.textContent = 'ตรวจสอบคิวว่างสำหรับวันนี้';
+            }
+        });
+
         // --- Logic for Sending Booking Request ---
         requestForm.addEventListener('submit', async (event) => {
             event.preventDefault();
@@ -127,14 +189,20 @@
             submitButton.textContent = 'กำลังส่งคำขอ...';
 
             try {
-                const timeValue = document.getElementById('booking-time').value;
+                const selectedDate = bookingDateInput.value;
+                const selectedTime = document.getElementById('booking-time').value;
+                if (!selectedTime) {
+                    alert('กรุณาเลือกเวลาที่ต้องการจอง');
+                    return;
+                }
+                const timeValue = `${selectedDate}T${selectedTime}`;
                 
                 const bookingsRef = collection(db, "bookings");
                 const q = query(bookingsRef, where("originalTime", "==", timeValue));
                 const querySnapshot = await getDocs(q);
 
                 if (!querySnapshot.empty) {
-                    alert('ขออภัย คิวนี้มีผู้ขอจองแล้ว กรุณาเลือกเวลาอื่น');
+                    alert('ขออภัย คิวในเวลานี้มีผู้ขอจองแล้ว กรุณาเลือกเวลาอื่น');
                     return;
                 }
 
@@ -162,6 +230,9 @@
 
                 alert(`ส่งคำขอจองคิวสำเร็จ!\nรหัสการจองของคุณคือ: ${bookingId}\nกรุณารอการยืนยันจากทางร้าน แล้วจึงกลับมาชำระเงิน`);
                 requestForm.reset();
+                requestForm.style.display = 'none';
+                availabilityResult.style.display = 'none';
+                bookingDateInput.value = '';
                 loadBookingHistory();
 
             } catch (error) {
@@ -180,12 +251,12 @@
 
             if (localBookings.length === 0) {
                 historyList.innerHTML = '<li>ยังไม่มีประวัติการจอง</li>';
-                clearHistoryBtn.style.display = 'none'; // Hide button if no history
+                clearHistoryBtn.style.display = 'none';
                 return;
             }
 
-            historyList.innerHTML = ''; // Clear list
-            clearHistoryBtn.style.display = 'block'; // Show button if there is history
+            historyList.innerHTML = '';
+            clearHistoryBtn.style.display = 'block';
 
             for (const bookingId of localBookings) {
                 const bookingsRef = collection(db, "bookings");
@@ -241,7 +312,7 @@
             const isConfirmed = confirm('คุณแน่ใจหรือไม่ว่าต้องการล้างประวัติการจองทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้');
             if (isConfirmed) {
                 localStorage.removeItem('gtrBarberBookings');
-                loadBookingHistory(); // Reload to show the empty state
+                loadBookingHistory();
             }
         });
 
