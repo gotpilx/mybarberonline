@@ -39,6 +39,9 @@
         .clear-btn:hover { background: #c0392b; }
         #availability-result { margin-top: 15px; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; display: none; }
         .status-info { background-color: #e7f3fe; color: #0c5460; }
+        .refresh-btn { font-size: 14px; padding: 8px; margin-top: 0px; background: #2ecc71; }
+        .refresh-btn:hover { background: #27ae60; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
@@ -48,7 +51,6 @@
         <div class="card">
             <h1>🧔‍♂️ จองคิว GTRbarber</h1>
             
-            <!-- Step 1: Check Day Availability -->
             <div id="check-day-section">
                 <label for="booking-date">เลือกวันที่ต้องการจอง:</label>
                 <input type="date" id="booking-date" required>
@@ -57,7 +59,6 @@
 
             <div id="availability-result"></div>
 
-            <!-- Step 2: Full Booking Form (hidden by default) -->
             <form id="booking-request-form" style="display: none;">
                 <hr style="margin-top: 20px;">
                 <label for="booking-time">เลือกเวลา:</label>
@@ -79,7 +80,10 @@
 
         <!-- Section 2: Booking History -->
         <div class="card">
-            <h2>📖 ประวัติการจองของคุณ</h2>
+            <div class="history-header">
+                <h2>📖 ประวัติการจองของคุณ</h2>
+                <button id="refresh-history-btn" class="refresh-btn">รีเฟรช</button>
+            </div>
             <ul id="booking-history-list">
                 <!-- Booking history will be loaded here -->
             </ul>
@@ -128,6 +132,7 @@
         const requestForm = document.getElementById('booking-request-form');
         const historyList = document.getElementById('booking-history-list');
         const clearHistoryBtn = document.getElementById('clear-history-btn');
+        const refreshHistoryBtn = document.getElementById('refresh-history-btn');
         const paymentModal = document.getElementById('payment-modal');
         const closeModalButton = paymentModal.querySelector('.close-button');
         const confirmPaymentButton = document.getElementById('confirm-payment-button');
@@ -307,6 +312,10 @@
                 loadBookingHistory();
             }
         });
+        
+        // --- Logic for Refreshing History ---
+        refreshHistoryBtn.addEventListener('click', loadBookingHistory);
+
 
         // --- Logic for Payment Modal ---
         slipUploadInput.addEventListener('change', (event) => {
