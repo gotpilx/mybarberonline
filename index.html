@@ -65,11 +65,14 @@
             <span class="close-button">&times;</span>
             <h2>โอนเงินมัดจำ</h2>
             <p id="deposit-amount" style="font-size: 1.2em; font-weight: bold;"></p>
+            
+            <!-- ใส่ข้อมูลบัญชีจริงของคุณที่นี่ -->
             <div class="account-details">
-                <p><strong>ธนาคาร:</strong> กสิกรไทย</p>
-                <p><strong>เลขที่บัญชี:</strong> 123-4-56789-0</p>
-                <p><strong>ชื่อบัญชี:</strong> GTRbarber</p>
+                <p><strong>ธนาคาร:</strong> กรุงไทย</p>
+                <p><strong>เลขที่บัญชี:</strong> 6628069664</p>
+                <p><strong>ชื่อบัญชี:</strong> กริตษฎา กรรฤทธิ์</p>
             </div>
+
             <label for="slip-upload" style="margin-top: 15px; font-weight: bold;">แนบสลิปโอนเงิน:</label>
             <input type="file" id="slip-upload" accept="image/*" required>
             <img id="slip-preview" src="" alt="Slip Preview">
@@ -154,11 +157,10 @@
             const timeValue = bookingTimeInput.value;
             const formattedTime = new Date(timeValue).toLocaleString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             
-            // --- สร้างรหัสการจอง ---
             const bookingId = `GTR-${Math.floor(1000 + Math.random() * 9000)}`;
 
             currentBookingData = {
-                bookingId: bookingId, // เพิ่มรหัสการจอง
+                bookingId: bookingId,
                 name, phone, deposit,
                 time: formattedTime,
                 originalTime: timeValue,
@@ -204,7 +206,6 @@
                 bookingForm.style.display = 'none';
                 statusMessage.style.display = 'none';
                 bookingTimeInput.value = '';
-                // --- แสดงรหัสการจองให้ลูกค้า ---
                 alert(`การจองสำเร็จ!\nรหัสการจองของคุณคือ: ${currentBookingData.bookingId}\nกรุณาเก็บรหัสนี้ไว้อ้างอิง`);
             } catch (e) {
                 alert('เกิดข้อผิดพลาดในการส่งข้อมูล กรุณาลองใหม่อีกครั้ง');
