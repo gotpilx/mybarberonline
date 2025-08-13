@@ -133,7 +133,7 @@
         const slipUploadInput = document.getElementById('slip-upload');
         const slipPreview = document.getElementById('slip-preview');
         let activeBookingForPayment = null;
-        let unsubscribeHistory = null; // Variable to hold the listener unsubscribe function
+        let unsubscribeHistory = null; 
 
         // --- Logic for Checking Day Availability ---
         checkDayBtn.addEventListener('click', async () => {
@@ -156,10 +156,17 @@
                 const q = query(bookingsRef, where("originalTime", ">=", startOfDay), where("originalTime", "<=", endOfDay));
                 const querySnapshot = await getDocs(q);
                 
-                const bookedCount = querySnapshot.size;
+                // --- NEW LOGIC: Count only active bookings ---
+                let activeBookedCount = 0;
+                querySnapshot.forEach((doc) => {
+                    // Only count bookings that are NOT completed
+                    if (doc.data().status !== 'completed') {
+                        activeBookedCount++;
+                    }
+                });
 
                 availabilityResult.style.display = 'block';
-                availabilityResult.textContent = `ℹ️ วันนี้มีคิวรออยู่แล้ว ${bookedCount} คิว กรุณาเลือกเวลาและกรอกข้อมูลเพื่อจอง`;
+                availabilityResult.textContent = `ℹ️ วันนี้มีคิวรออยู่แล้ว ${activeBookedCount} คิว กรุณาเลือกเวลาและกรอกข้อมูลเพื่อจอง`;
                 availabilityResult.className = 'status-info';
                 requestForm.style.display = 'block';
 
@@ -224,7 +231,7 @@
                 requestForm.style.display = 'none';
                 availabilityResult.style.display = 'none';
                 bookingDateInput.value = '';
-                listenForBookingHistory(); // Re-initialize listener with the new booking
+                listenForBookingHistory();
 
             } catch (error) {
                 console.error("Error sending request: ", error);
@@ -237,7 +244,6 @@
 
         // --- Logic for Loading and Displaying History with Real-time Updates ---
         function listenForBookingHistory() {
-            // If there's an active listener, stop it before creating a new one
             if (unsubscribeHistory) {
                 unsubscribeHistory();
             }
@@ -257,7 +263,7 @@
             const q = query(bookingsRef, where("bookingId", "in", localBookings));
 
             unsubscribeHistory = onSnapshot(q, (querySnapshot) => {
-                historyList.innerHTML = ''; // Clear list on each update
+                historyList.innerHTML = '';
                 if (querySnapshot.empty && localBookings.length > 0) {
                      historyList.innerHTML = '<li>ไม่พบข้อมูลการจอง (อาจถูกลบโดยแอดมิน)</li>';
                      return;
@@ -268,9 +274,7 @@
                     bookings.push({ id: doc.id, ...doc.data() });
                 });
 
-                // Sort by creation date, newest first
                 bookings.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
-
                 bookings.forEach(renderHistoryItem);
             });
         }
@@ -315,12 +319,11 @@
         clearHistoryBtn.addEventListener('click', () => {
             const isConfirmed = confirm('คุณแน่ใจหรือไม่ว่าต้องการล้างประวัติการจองทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้');
             if (isConfirmed) {
-                // Stop listening to old bookings
                 if (unsubscribeHistory) {
                     unsubscribeHistory();
                 }
                 localStorage.removeItem('gtrBarberBookings');
-                listenForBookingHistory(); // Reload to show the empty state
+                listenForBookingHistory();
             }
         });
 
@@ -354,7 +357,6 @@
 
                 paymentModal.style.display = 'none';
                 alert(`แจ้งการชำระเงินสำเร็จ!\nรหัสการจอง: ${activeBookingForPayment.bookingId}\nเวลานัด: ${activeBookingForPayment.time}\n\n(กรุณาบันทึกหน้าจอนี้ไว้เป็นหลักฐาน)`);
-                // No need to call loadHistory, onSnapshot will handle it
             } catch (e) {
                 alert('เกิดข้อผิดพลาดในการส่งข้อมูล');
             } finally {
@@ -366,7 +368,6 @@
         closeModalButton.addEventListener('click', () => { paymentModal.style.display = 'none'; });
         window.addEventListener('click', (event) => { if (event.target == paymentModal) { paymentModal.style.display = 'none'; } });
 
-        // --- Initial Load ---
         document.addEventListener('DOMContentLoaded', listenForBookingHistory);
     </script>
 </body>
